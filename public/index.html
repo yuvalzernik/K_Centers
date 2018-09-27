@@ -13,9 +13,9 @@
   <link rel="stylesheet" type="text/css" href="../public/styles.css">
 
 </head>
-<nav class="navbar navbar-expand-lg navbar-dark primary-color">
+<!-- <nav class="navbar navbar-expand-lg navbar-dark primary-color">
     <a class="navbar-brand" >Find your way</a>
-</nav>
+</nav> -->
 <body>
   <div class="row">
     <!--Grid column-->
@@ -55,19 +55,20 @@
     <!--Grid column-->
     <div class="col-lg-7">
 
-        <!--Google map-->
-        <div id="map" class="z-depth-1-half map-container"></div>
-  
-        <br>
-        <!--Buttons-->
         <div class="row text-center">
-            <div id="map"></div>
             <div id="listing">
               <table id="resultsTable">
                 <tbody id="results"></tbody>
               </table>
             </div>
         </div>
+        <!--Google map-->
+        <div id="map" class="z-depth-1-half map-container">
+
+        </div>
+  
+        <!--Buttons-->
+
   
       </div>
       <!--Grid column-->
@@ -100,8 +101,6 @@
     </div>
     <!-- div row -->
   </div>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC-Fh2NikCnbNjre-8XK1wPoudWPpfOLow&libraries=places&callback=initMap"
-    async defer></script>
   <script src="../public/index.js"></script>
   <script type="text/javascript" src="node_modules/mdbootstrap/js/jquery-3.3.1.min.js"></script>
   <!-- Bootstrap tooltips -->
@@ -110,7 +109,8 @@
   <script type="text/javascript" src="node_modules/mdbootstrap/js/bootstrap.min.js"></script>
   <!-- MDB core JavaScript -->
   <script type="text/javascript" src="node_modules/mdbootstrap/js/mdb.min.js"></script>
-
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC-Fh2NikCnbNjre-8XK1wPoudWPpfOLow&libraries=places&callback=initMap"
+  async defer></script>
 </body>
 
 </html>

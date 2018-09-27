@@ -53,7 +53,7 @@ function onPlaceChanged() {
     var place = autocomplete.getPlace();
     if (place.geometry) {
         map.panTo(place.geometry.location);
-        map.setZoom(8);
+        map.setZoom(9);
         console.log(map.getBounds())
     } else {
         document.getElementById('autocomplete').placeholder = 'Enter a city';
