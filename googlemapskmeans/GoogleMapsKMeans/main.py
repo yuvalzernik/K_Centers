@@ -7,7 +7,7 @@ from k_means_for_lines_experiments_final import ExperimentsKMeansForLines
 # print(sys.argv[4])
 bounds = [sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]]
 file_name = './googlemapskmeans/GoogleMapsKMeans/lines.csv'
-k = 7
+k = 2
 
 def line_is_in_bound(line, bounds):
     south_west = [bounds[0],bounds[1]]

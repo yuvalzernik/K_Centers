@@ -12,6 +12,7 @@ app.get('/', (request, response) => {response.sendFile(path.join(__dirname, '../
 app.use(express.static('../public'))
 app.use(express.static("."));
 
+app.get('/test', (request, response) => {response.sendFile(path.join(__dirname, '../public', 'test.html'))});
 
 app.listen(3000, function() { 
     console.log('server running on port 3000'); 

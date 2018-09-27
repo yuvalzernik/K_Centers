@@ -40,7 +40,7 @@ class ExperimentsKMeansForLines:
 
         parameter_config = ExperimentsKMeansForLines.parameters_config
         if is_ground_truth:
-            EM_iterations = L.get_size() * 10
+            EM_iterations = L.get_size() * 20
         size_of_sample = int(2 * k)
         if size <= size_of_sample:
             S = L
