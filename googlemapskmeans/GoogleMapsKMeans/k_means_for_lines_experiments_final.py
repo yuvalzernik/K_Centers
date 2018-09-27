@@ -40,7 +40,7 @@ class ExperimentsKMeansForLines:
 
         parameter_config = ExperimentsKMeansForLines.parameters_config
         if is_ground_truth:
-            EM_iterations = L.get_size() * 1
+            EM_iterations = L.get_size() * 20
         size_of_sample = int(2 * k)
         if size <= size_of_sample:
             S = L
@@ -165,20 +165,20 @@ class ExperimentsKMeansForLines:
     def get_means_for_lines_from_file(file_name, k):
 
 
-        lines_nuber = 500
-        lines = []
-        with open(file_name, 'rt') as csvfile:
-            spamreader = csv.reader(csvfile)
-            i = 0
-            for row in spamreader:
-                row_splited = [element.split(' ') for element in row]
-                row_final = [float(entry) for entry in  row_splited[0]]
-                lines.append(row_final)
-                i += 1
-                if i == lines_nuber:
-                    break
+        # lines_nuber = 500
+        # lines = []
+        # with open(file_name, 'rt') as csvfile:
+        #     spamreader = csv.reader(csvfile)
+        #     i = 0
+        #     for row in spamreader:
+        #         row_splited = [element.split(' ') for element in row]
+        #         row_final = [float(entry) for entry in  row_splited[0]]
+        #         lines.append(row_final)
+        #         i += 1
+        #         if i == lines_nuber:
+        #             break
 
-        L = SetOfLines( lines = lines, is_points = True)
+        L = SetOfLines( lines = file_name, is_points = True)
         mens = ExperimentsKMeansForLines.EM_estimetor_k_means_for_lines(L,k)
         return mens
     ######################################################################

@@ -21,8 +21,6 @@ class SetOfLines:
 
     ##################################################################################
 
-
-
     def __init__(self, spans=[], displacements=[], weights = [], sen=[], lines = [], is_points = False):
 
         if is_points:
@@ -120,7 +118,7 @@ class SetOfLines:
 
     ##################################################################################
 
-    def get_4_approx_points(self, k):
+    def get_4_approx_points_ex_search(self, k):
 
         """
         This method returns k points that minimizes the sum of squared distances to the lines in the set, up to factor
@@ -178,6 +176,59 @@ class SetOfLines:
         P_4_approx = np.unique(P_4_approx,axis=0)
         P_4_approx = SetOfPoints(P_4_approx)
         return P_4_approx
+
+    ##################################################################################
+	
+    def get_4_approx_points(self, k):
+
+       """
+       This method returns k points that minimizes the sum of squared distances to the lines in the set, up to factor
+       of 4.
+
+       Args:
+           k (int) : the number of required centers.
+
+       Returns:
+           np.ndarray: a set of k points that minimizes the sum of squared distances to the lines in the set, up to
+           a constant factor.
+       """
+
+       assert k > 0, "k <= 0"
+       assert self.get_size() > 0, "set is empty"
+
+       dim = self.dim
+       size = self.get_size()
+       displacements = self.displacements
+       spans = self.spans
+       weights = self.weights
+
+       intersection_points_before_uniqe = self.get_all_intersection_points()
+       intersection_points = np.unique(intersection_points_before_uniqe,axis=0)  # that is n(n-1) points - the union of every n-1 points on each line in the set that are closest to the n-1 other lines
+       number_of_intersection_points = np.shape(intersection_points.reshape(-1,dim))[0]
+       if number_of_intersection_points <= k:
+           P_4_approx = intersection_points_before_uniqe
+       else:
+           all_indices = np.asarray(range(len(intersection_points)))
+           try:
+               indices_sample = np.random.choice(all_indices, k, False)
+           except:
+               x=2
+           P_4_approx = intersection_points[indices_sample]
+       P_4_approx = SetOfPoints(P_4_approx)
+       return P_4_approx
+
+    ###################################################################################
+
+    def get_size(self):
+       """
+       Args:
+           ~
+
+       Returns:
+           int: number of lines in the set
+       """
+
+       return np.shape(self.spans)[0]
 
     ##################################################################################
 
