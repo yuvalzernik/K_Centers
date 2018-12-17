@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>Find me a way</title>
+  <title>Roadtrip</title>
   <meta charset="utf-8">
   <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
@@ -10,69 +10,94 @@
   <link href="node_modules/mdbootstrap/css/bootstrap.min.css" rel="stylesheet">
   <!-- Material Design Bootstrap -->
   <link href="node_modules/mdbootstrap/css/mdb.min.css" rel="stylesheet">
+  <!-- Main CSS file -->
   <link rel="stylesheet" type="text/css" href="../public/styles.css">
-
 </head>
-<!-- <nav class="navbar navbar-expand-lg navbar-dark primary-color">
-    <a class="navbar-brand" >Find your way</a>
-</nav> -->
+
 <body>
   <div class="row">
-    <!--Grid column-->
+    <!-- Grid column -->
     <div class="col-lg-5 mb-4">
-
-      <!--Form with header-->
+      <!-- Form with header -->
       <div class="card">
-
         <div class="card-body">
-          <!--Header-->
-          <div class="form-header blue accent-1">
-            <h3> The WAY</h3>
-          </div>
 
-          <p>bla bla bla bla</p>
+          <!-- Header -->
+          <div class="logo"></div>
+          <h4>Welcome to Roadtrip!</h4>
+          <p>
+            The website that plans your trip for you. All you need to do is find an area to travel in and choose what
+            kinds of attractions you wish to visit.
+            <br> So click that button and start tripping!
+          </p>
           <br>
 
-          <!--Body-->
+          <!-- Location search box -->
           <div id="md-form_center" class="md-form">
             <div id="locationField">
-              <input id="autocomplete" placeholder="Enter a location" type="text" class="form-control" />
+              <input id="autocomplete" placeholder="Enter a place to visit" type="text" class="form-control" />
             </div>
           </div>
-          <div class="text-center mt-4">
-            <button id="getBoundsButton" class="btn btn-light-blue" onclick="getBoundsButtonFunction()"> Get Bounds Button </button>
+
+          <!-- Places checkboxes -->
+          <div class="col-lg-4 mb-2">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="restaurant">
+              <label class="custom-control-label" for="restaurant">Restaurants </label>
+            </div>
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="airport">
+              <label class="custom-control-label" for="airport">Airports </label>
+            </div>
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="park">
+              <label class="custom-control-label" for="park">Parks </label>
+            </div>
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="museum">
+              <label class="custom-control-label" for="museum">Museums </label>
+            </div>
+          </div>
+          <div class="col-lg-4 mb-2">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="bar">
+              <label class="custom-control-label" for="bar">Bars </label>
+            </div>
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="amusement_park">
+              <label class="custom-control-label" for="amusement_park">Amusement parks </label>
+            </div>
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="movie_theater">
+              <label class="custom-control-label" for="movie_theater">Movie theaters </label>
+            </div>
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="night_club">
+              <label class="custom-control-label" for="night_club">Night clubs </label>
+            </div>
           </div>
 
+          <!--Buttons-->
+          <div class="text-center mt-4">
+            <button id="Ransac" class="btn btn-light-blue algo_btn" onclick="getBoundsButtonFunction('Ransac')"> Run
+              With Ransac </button>
+            <button id="Coreset" class="btn btn-light-blue algo_btn" onclick="getBoundsButtonFunction('Coreset')"> Run
+              With Coreset </button>
+            <button id="Both" class="btn btn-light-blue algo_btn" onclick="getBoundsButtonFunction('Both')"> Run With
+              Both </button>
+          </div>
         </div>
-
       </div>
-      <!--Form with header-->
-
     </div>
-    <!--Grid column-->
-
 
     <!--Grid column-->
     <div class="col-lg-7">
-
-        <div class="row text-center">
-            <div id="listing">
-              <table id="resultsTable">
-                <tbody id="results"></tbody>
-              </table>
-            </div>
-        </div>
-        <!--Google map-->
-        <div id="map" class="z-depth-1-half map-container">
-
-        </div>
-  
-        <!--Buttons-->
-
-  
+      <!--Google map-->
+      <div id="map" class="z-depth-1-half map-container">
       </div>
-      <!--Grid column-->
+    </div>
 
+    <!-- Place's information window -->
     <div style="display: none">
       <div id="info-content">
         <table>
@@ -99,18 +124,26 @@
         </table>
       </div>
     </div>
-    <!-- div row -->
   </div>
-  <script src="../public/index.js"></script>
+
+  <!-- Jquery -->
   <script type="text/javascript" src="node_modules/mdbootstrap/js/jquery-3.3.1.min.js"></script>
+  <!-- Google Maps API -->
+ <script src="https://maps.googleapis.com/maps/api/js?key=API_KEY&libraries=places,geometry"></script>
+  <!-- Route Boxer -->
+  <script src="https://cdn.rawgit.com/googlemaps/v3-utility-library/master/routeboxer/src/RouteBoxer.js" type="text/javascript"></script>
+  <!-- Main javascript file -->
+  <script src="../public/index.js"></script>
   <!-- Bootstrap tooltips -->
   <script type="text/javascript" src="node_modules/mdbootstrap/js/popper.min.js"></script>
   <!-- Bootstrap core JavaScript -->
   <script type="text/javascript" src="node_modules/mdbootstrap/js/bootstrap.min.js"></script>
   <!-- MDB core JavaScript -->
   <script type="text/javascript" src="node_modules/mdbootstrap/js/mdb.min.js"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC-Fh2NikCnbNjre-8XK1wPoudWPpfOLow&libraries=places&callback=initMap"
-  async defer></script>
+  <!-- Script used to load the map right after loading the page -->
+  <script type="text/javascript">
+    google.maps.event.addDomListener(window, 'load', initMap);
+  </script>
 </body>
 
 </html>

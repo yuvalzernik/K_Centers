@@ -52,6 +52,9 @@ table {
 
 #autocomplete {
   width: 100%;
+  font-size: 1.5rem;
+  font-family: cursive;
+  margin: 1rem;
 }
 
 #country {
@@ -91,15 +94,44 @@ table {
 .iw_table_icon {
   text-align: right;
 }
+
 .bg-1 { 
   background-color: #1abc9c; /* Green */
    color: #ffffff;
 }
+
 #md-form_center {
   position: relative;
   margin-top: -0.5rem;
-  margin-bottom: 8.5rem;
+  margin-bottom: 6.5rem;
 }
-#getBoundsButton {
-margin-top: 7em;
+.algo_btn {
+margin-top: 3em;
+}
+
+.logo {
+  margin-left: 7em;
+	position: static;
+	width: 48%;
+	height: 135px;
+  background: url('../logo/road-trip.gif') center no-repeat #fff;
+  padding-bottom: 3em;
+} 
+
+.custom-control-label {
+  position: relative;
+  padding-right: 0.3rem;
+}
+
+.col-lg-4 {
+  display: -webkit-box;
+}
+
+h4 {
+  font-family: cursive;
+  padding-top: 2rem;
+}
+
+p {
+  font-family: cursive;
 }

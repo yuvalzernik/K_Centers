@@ -3,10 +3,16 @@
 #     Paper: http://people.csail.mit.edu/dannyf/outliers.pdf    #
 #     Implemented by Yair Marom. yairmrm@gmail.com              #
 #################################################################
+
+
+
+from __future__ import division
+
 import copy
 import random
 
 import numpy as np
+
 
 class SetOfPoints:
     """
@@ -19,13 +25,15 @@ class SetOfPoints:
 
     ##################################################################################
 
-    def __init__(self, P=[], w=[], sen=[]):
+    def __init__(self, P=[], w=[], sen=[], indexes = []):
         """
         C'tor
         :param P: np.ndarray - set of points
         :param w: np.ndarray - set of weights
         :param sen: np.ndarray - set of sensitivities
         """
+        #if (indexes != [] and len(P) == 0) or (indexes == [] and len(P) != 0):
+        #    assert indexes != [] and len(P) != 0, "not indexes == [] and len(P) == 0"
 
         size = len(P)
         if size == 0:  # there is no points in the set we got
@@ -33,6 +41,7 @@ class SetOfPoints:
             self.weights = []
             self.sensitivities = []
             self.dim = 0
+            self.indexes = []
             return
         if np.ndim(P) == 1:  # there is only one point in the array
             Q = []
@@ -44,6 +53,8 @@ class SetOfPoints:
                 sen = np.ones((1, 1), dtype=np.float)
             self.weights = w
             self.sensitivities = sen
+            [_, self.dim] = np.shape(self.points)
+            self.indexes = np.zeros((1, 1), dtype=np.float)
             return
         else:
             self.points = np.asarray(P)
@@ -54,6 +65,10 @@ class SetOfPoints:
             sen = np.ones((size, 1), dtype=np.float)
         self.weights = w
         self.sensitivities = sen
+        if indexes == []:
+            self.indexes = np.asarray(range(len(self.points))).reshape(-1)
+        else:
+            self.indexes = indexes.reshape(-1)
 
     ##################################################################################
 
@@ -76,7 +91,8 @@ class SetOfPoints:
             sample_indices = np.random.choice(all_indices, size_of_sample).tolist()
             sample_points = np.take(self.points, sample_indices, axis=0, out=None, mode='raise')
             sample_weights = np.take(self.weights, sample_indices, axis=0, out=None, mode='raise')
-            return SetOfPoints(sample_points, sample_weights)
+            sample_indexes = np.take(self.indexes, sample_indices, axis=0, out=None, mode='raise')
+            return SetOfPoints(sample_points, sample_weights,indexes=sample_indexes)
 
     ##################################################################################
 
@@ -98,12 +114,16 @@ class SetOfPoints:
         Returns:
             SetOfPoints: a set of point that contains the points in the input indices
         """
-
+        if self.get_size() == 0:
+            x=2
         assert len(indices) > 0, "indices length is zero"
+
 
         sample_points = self.points[indices]
         sample_weights = self.weights[indices]
-        return SetOfPoints(sample_points, sample_weights)
+        sample_indexes = self.indexes[indices]
+
+        return SetOfPoints(sample_points, sample_weights, indexes=sample_indexes)
 
     ##################################################################################
 
@@ -151,6 +171,7 @@ class SetOfPoints:
         points = P.points
         weights = P.weights.reshape(-1, 1)
         sensitivities = P.sensitivities.reshape(-1, 1)
+        indexes = P.indexes.reshape(-1)
 
         size = self.get_size()
         if size == 0 and self.dim == 0:
@@ -158,13 +179,21 @@ class SetOfPoints:
             self.points = points
             self.weights = weights
             self.sensitivities = sensitivities
+            self.indexes = indexes
             return
 
         self.points = np.append(self.points, points, axis=0)
         self.weights = np.append(self.weights, weights)
         self.sensitivities = np.append(self.sensitivities, sensitivities, axis=0)
+        self.indexes = np.append(self.indexes, indexes, axis=0)
 
 
+    ##################################################################################
+
+    def set_all_weights_to_specific_value(self, value):
+        self.weights = np.ones(self.get_size()) * value
+
+    ##################################################################################
 
     def remove_points_at_indexes(self, start, end):
         """
@@ -177,6 +206,21 @@ class SetOfPoints:
         self.points = np.delete(self.points, indexes, axis=0)
         self.weights = np.delete(self.weights, indexes, axis=0)
         self.sensitivities = np.delete(self.sensitivities, indexes, axis=0)
+        self.indexes = np.delete(self.indexes, indexes, axis=0)
+
+    ##################################################################################
+
+    def remove_points_in_indexes(self, indexes):
+        """
+        TODO: complete
+        :param start:
+        :param end:
+        :return:
+        """
+        self.points = np.delete(self.points, indexes, axis=0)
+        self.weights = np.delete(self.weights, indexes, axis=0)
+        self.sensitivities = np.delete(self.sensitivities, indexes, axis=0)
+        self.indexes = np.delete(self.indexes, indexes, axis=0)
 
     ##################################################################################
 
@@ -190,15 +234,18 @@ class SetOfPoints:
             ~
         """
 
-        equals_indices = []
-
-        for i in range(len(self.points)):
-                if self.points[i].tolist() in C.points.tolist():
-                    equals_indices.append(i)
-                    continue
-        self.points = np.delete(self.points, equals_indices, axis=0)
-        self.weights = np.delete(self.weights, equals_indices, axis=0)
-        self.sensitivities = np.delete(self.sensitivities, equals_indices, axis=0)
+        indexes = []
+        C_indexes = C.indexes
+        self_indexes = self.indexes
+        for i in range(len(self_indexes)):
+            index = self_indexes[i]
+            if index in C.indexes:
+                indexes.append(i)
+        #indexes = C.indexes
+        self.points = np.delete(self.points, indexes, axis=0)
+        self.weights = np.delete(self.weights, indexes, axis=0)
+        self.sensitivities = np.delete(self.sensitivities, indexes, axis=0)
+        self.indexes = np.delete(self.indexes, indexes, axis=0)
 
     ##################################################################################
 
@@ -246,7 +293,8 @@ class SetOfPoints:
         distances_smaller_than_median_indices = np.where(all_distances <= m_th_distance) #all the m smallest distances indices in self.points
         P_subset = self.points[distances_smaller_than_median_indices]
         w_subset = self.weights[distances_smaller_than_median_indices]
-        return SetOfPoints(P_subset, w_subset)
+        indexes_subset = self.indexes[distances_smaller_than_median_indices]
+        return SetOfPoints(P_subset, w_subset, indexes=indexes_subset)
 
     ##################################################################################
 
@@ -291,7 +339,8 @@ class SetOfPoints:
         distances_smaller_than_median_indices = list(np.where(all_distances <= m_th_distance))  # all the m smallest distances indices in self.points
         P_subset = self_points[distances_smaller_than_median_indices]
         w_subset = self_weights[distances_smaller_than_median_indices]
-        return SetOfPoints(P_subset, w_subset)
+        indexes_subset = self.indexes[distances_smaller_than_median_indices]
+        return SetOfPoints(P_subset, w_subset, indexes=indexes_subset)
 
     ##################################################################################
 
@@ -337,7 +386,8 @@ class SetOfPoints:
         distances_smaller_than_median_indices = list(np.where(all_distances >= m_th_distance))  # all the m smallest distances indices in self.points
         P_subset = self_points[distances_smaller_than_median_indices]
         w_subset = self_weights[distances_smaller_than_median_indices]
-        return SetOfPoints(P_subset, w_subset)
+        indexes_subset = self.indexes[distances_smaller_than_median_indices]
+        return SetOfPoints(P_subset, w_subset, indexes=indexes_subset)
 
     ##################################################################################
 
@@ -378,8 +428,9 @@ class SetOfPoints:
         distances_smaller_than_median_indices = np.where(all_distances >= m_th_distance) #all the m largest distances indices in self.points
         P_subset = self.points[distances_smaller_than_median_indices]
         w_subset = self.weights[distances_smaller_than_median_indices]
-        s = SetOfPoints(P_subset, w_subset)
-        return s
+        indexes_subset = self.indexes[distances_smaller_than_median_indices]
+        return SetOfPoints(P_subset, w_subset, indexes=indexes_subset)
+
 
     ##################################################################################
 
@@ -592,7 +643,8 @@ class SetOfPoints:
         P_subset = self.points[indices]
         w_subset = self.weights[indices]
         sen_subset = self.sensitivities[indices]
-        return SetOfPoints(P_subset, w_subset, sen_subset)
+        indexes_subset = self.indexes[indices]
+        return SetOfPoints(P_subset, w_subset, sen_subset, indexes_subset)
 
     ###########################################################################
 
@@ -661,6 +713,8 @@ class SetOfPoints:
         min_distances = np.min(all_distances_from_each_center, axis=0)
         cost = np.sum(min_distances)
         return cost
+
+    ###########################################################################
 
     def get_number_of_points_larger_than_value(self, value):
         """

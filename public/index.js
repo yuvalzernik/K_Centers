@@ -1,35 +1,45 @@
-
 var directionsService
 var directionsDisplay
+var directionsDisplay2
 var map, places, infoWindow;
-var markers = [];
+var markersRansac = [];
+var markerCoreset = [];
+var markerss = [];
+var gmarkers = [];
 var autocomplete;
-var countryRestrict = { 'country': 'us' };
 var MARKER_PATH = 'https://developers.google.com/maps/documentation/javascript/images/marker_green';
 var hostnameRegexp = new RegExp('^https?://.+?/');
+var path = null;
+var boxes;
+var routeBoxer = null;
+var distance = 0.3; // Distance in KM from the route where the site searches for places
+var isBothOption = false
+
+// Initialization of the map
 function initMap() {
     directionsService = new google.maps.DirectionsService();
-    directionsDisplay = new google.maps.DirectionsRenderer();
+    directionsDisplay = new google.maps.DirectionsRenderer({
+        suppressMarkers: true
+    });
+    directionsDisplay2 = new google.maps.DirectionsRenderer({
+        polylineOptions: {
+            strokeColor: "red",
+        },suppressMarkers: true
+    });
+    routeBoxer = new RouteBoxer();
     map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 7,
+        zoom: 8,
         center: { lat: 37.1, lng: -95.7 },
-        mapTypeControl: false,
-        panControl: false,
-        zoomControl: false,
-        streetViewControl: false
+        mapTypeControl: true,
+        panControl: true,
+        zoomControl: true,
+        streetViewControl: true
     });
     infoWindow = new google.maps.InfoWindow({
         content: document.getElementById('info-content')
     });
 
     // Create the autocomplete object and associate it with the UI input control.
-    // Restrict the search to the default country, and to place type "cities".
-    // autocomplete = new google.maps.places.Autocomplete(
-    //     /** @type {!HTMLInputElement} */(
-    //         document.getElementById('autocomplete')), {
-    //         types: ['(cities)'],
-    //         // componentRestrictions: countryRestrict
-    //     });
     var input = document.getElementById('autocomplete');
     autocomplete = new google.maps.places.Autocomplete(input);
 
@@ -40,11 +50,7 @@ function initMap() {
 
     places = new google.maps.places.PlacesService(map);
 
-    autocomplete.addListener('place_changed', onPlaceChanged);
-
-    // Add a DOM event listener to react when the user selects a country.
-    // document.getElementById('country').addEventListener(
-    //     'change', setAutocompleteCountry);
+    autocomplete.addListener('place_changed', onPlaceChanged); // Add a DOM event listener to react when the user selects a place.
 }
 
 // When the user selects a city, get the place details for the city and
@@ -60,115 +66,15 @@ function onPlaceChanged() {
     }
 }
 
-// Search for hotels in the selected city, within the viewport of the map.
-function search() {
-    var search = {
-        bounds: map.getBounds(),
-        types: ['establishment']
-    };
-
-    places.nearbySearch(search, function (results, status) {
-        if (status === google.maps.places.PlacesServiceStatus.OK) {
-            clearResults();
-            clearMarkers();
-            // Create a marker for each hotel found, and
-            // assign a letter of the alphabetic to each marker icon.
-            for (var i = 0; i < results.length; i++) {
-                var markerLetter = String.fromCharCode('A'.charCodeAt(0) + (i % 26));
-                var markerIcon = MARKER_PATH + markerLetter + '.png';
-                // Use marker animation to drop the icons incrementally on the map.
-                markers[i] = new google.maps.Marker({
-                    position: results[i].geometry.location,
-                    animation: google.maps.Animation.DROP,
-                    icon: markerIcon
-                });
-                // If the user clicks a hotel marker, show the details of that hotel
-                // in an info window.
-                markers[i].placeResult = results[i];
-                google.maps.event.addListener(markers[i], 'click', showInfoWindow);
-                setTimeout(dropMarker(i), i * 100);
-                addResult(results[i], i);
-            }
-        }
-    });
-}
-
-function clearMarkers() {
-    for (var i = 0; i < markers.length; i++) {
-        if (markers[i]) {
-            markers[i].setMap(null);
+// Clears all the place markers 
+function clearMarkers(arrMarker) {
+    console.log(arrMarker);
+    for (var i = 0; i < arrMarker.length; i++) {
+        if (arrMarker[i]) {
+            arrMarker[i].setMap(null);
         }
     }
-    markers = [];
-}
-
-// Set the country restriction based on user input.
-// Also center and zoom the map on the given country.
-function setAutocompleteCountry() {
-    var country = document.getElementById('country').value;
-    if (country == 'all') {
-        autocomplete.setComponentRestrictions({ 'country': [] });
-        map.setCenter({ lat: 15, lng: 0 });
-        map.setZoom(2);
-    } else {
-        autocomplete.setComponentRestrictions({ 'country': country });
-        map.setCenter(countries[country].center);
-        map.setZoom(countries[country].zoom);
-    }
-    clearResults();
-    clearMarkers();
-}
-
-function dropMarker(i) {
-    return function () {
-        markers[i].setMap(map);
-    };
-}
-
-function addResult(result, i) {
-    var results = document.getElementById('results');
-    var markerLetter = String.fromCharCode('A'.charCodeAt(0) + (i % 26));
-    var markerIcon = MARKER_PATH + markerLetter + '.png';
-
-    var tr = document.createElement('tr');
-    tr.style.backgroundColor = (i % 2 === 0 ? '#F0F0F0' : '#FFFFFF');
-    tr.onclick = function () {
-        google.maps.event.trigger(markers[i], 'click');
-    };
-
-    var iconTd = document.createElement('td');
-    var nameTd = document.createElement('td');
-    var icon = document.createElement('img');
-    icon.src = markerIcon;
-    icon.setAttribute('class', 'placeIcon');
-    icon.setAttribute('className', 'placeIcon');
-    var name = document.createTextNode(result.name);
-    iconTd.appendChild(icon);
-    nameTd.appendChild(name);
-    tr.appendChild(iconTd);
-    tr.appendChild(nameTd);
-    results.appendChild(tr);
-}
-
-function clearResults() {
-    var results = document.getElementById('results');
-    while (results.childNodes[0]) {
-        results.removeChild(results.childNodes[0]);
-    }
-}
-
-// Get the place details for a hotel. Show the information in an info window,
-// anchored on the marker for the hotel that the user selected.
-function showInfoWindow() {
-    var marker = this;
-    places.getDetails({ placeId: marker.placeResult.place_id },
-        function (place, status) {
-            if (status !== google.maps.places.PlacesServiceStatus.OK) {
-                return;
-            }
-            infoWindow.open(map, marker);
-            buildIWContent(place);
-        });
+    arrMarker = [];
 }
 
 // Load the place information into the HTML elements used by the info window.
@@ -187,9 +93,6 @@ function buildIWContent(place) {
         document.getElementById('iw-phone-row').style.display = 'none';
     }
 
-    // Assign a five-star rating to the hotel, using a black star ('&#10029;')
-    // to indicate the rating the hotel has earned, and a white star ('&#10025;')
-    // for the rating points not achieved.
     if (place.rating) {
         var ratingHtml = '';
         for (var i = 0; i < 5; i++) {
@@ -221,47 +124,256 @@ function buildIWContent(place) {
     }
 }
 
-
-var getBoundsBtn = document.getElementById("getBoundsButton");
-
-function getBoundsButtonFunction() {
-    console.log("beeeee")
+// After pressing a button, the current map bounds are saved and sent to the server
+// for use of the algorithm
+function getBoundsButtonFunction(RansacOrCoresetOrBoth) {
     let k_points
     let map_bounds = map.getBounds()
-    let myJSON = JSON.stringify(map_bounds);
+    let mapBoundsAndAlgorithm = {
+        mapBounds: map_bounds,
+        Algorithm: RansacOrCoresetOrBoth
+    }
+    clearMarkers(markerss)
+    let myJSON = JSON.stringify(mapBoundsAndAlgorithm);
     console.log(myJSON)
     let xhr = new XMLHttpRequest();
     xhr.open('POST', '/getbounds', true);
     xhr.setRequestHeader('Content-type', 'application/json; charset=utf-8');
     xhr.onreadystatechange = function () {
         if (xhr.readyState == 4 && xhr.status == 200) {
-            console.log("yeeeee")
+            console.log(xhr.response)
             k_points = JSON.parse(xhr.response)
-            k_points.splice(0, 1)
-            k_points.pop()
+            console.log(k_points.length)
+            if (k_points.length == 2) {
+                isBothOption = true
+                k_points.forEach(element => {
+                    element.splice(0, 1)
+                    element.pop()
+                });
+            }
+            else {
+                k_points.splice(0, 1)
+                k_points.pop()
+            }
             console.log(k_points)
-            directionsDisplay.setMap(map);
-            calcRoute(map, k_points);
-            search();
+            directionsDisplay.setMap(null);
+            directionsDisplay2.setMap(null);
+            if(isBothOption || (RansacOrCoresetOrBoth =="Ransac"))
+                directionsDisplay.setMap(map);
+            if(isBothOption || (RansacOrCoresetOrBoth =="Coreset"))
+                directionsDisplay2.setMap(map);
+            sendDirectionRequest(map, k_points, RansacOrCoresetOrBoth)
 
         }
     }
     xhr.send(myJSON);
 }
-function calcRoute(map, k_points) {
-    var start = new google.maps.LatLng(k_points[0], k_points[1]);
-    var end = new google.maps.LatLng(k_points[2], k_points[3]);
+
+// Searches for places around the route using Routeboxer objects
+async function findPlaces(searchIndex) {
+    var requestq = {
+        bounds: boxes[searchIndex],
+    };
+    var placesTypes = []
+    var checkboxes = document.querySelectorAll('input[type=checkbox]:checked')
+    for (var i = 0; i < checkboxes.length; i++) {
+        placesTypes.push(checkboxes[i].id)
+    }
+    places.nearbySearch(requestq, function (results, status) {
+        if (status == google.maps.places.PlacesServiceStatus.OK) {
+            for (var i = 0, result; result = results[i]; i++) {
+                result.types.forEach(element => {
+                    if (placesTypes.includes(element)) {
+                        var marker = createMarker(result);
+                    }
+                });
+            }
+        }
+        if (status != google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
+            searchIndex++;
+            if (searchIndex < boxes.length)
+                findPlaces(searchIndex);
+        } else { // delay 1 second and try again
+            setTimeout("findPlaces(" + searchIndex + ")", 1000);
+        }
+
+    });
+}
+
+// Marks all the points returned by the KMeans algorithm on the map and draws
+// a route between them
+async function calcRoute(map, k_points, type) {
+    var start;
+    var end;
+    var start_end = [];
+    var wayp = [];
+    var k_points_latlang
+    k_points_latlang = Convert_points(k_points, start_end)
+    for (i = 0; i < k_points_latlang.length; i++) {
+        var position = k_points_latlang[i];
+        createRansacCoresetMarkers(type, position)
+        console.log(position)
+        if (i == start_end.prototype[0]) start = position;
+        else if (i == start_end.prototype[1]) end = position;
+        else {
+            wayp.push({
+                location: position,
+                stopover: true
+            });
+        }
+    }
     var request = {
         origin: start,
         destination: end,
-        travelMode: 'DRIVING'
+        travelMode: 'DRIVING',
+        waypoints: wayp,
+        optimizeWaypoints: true
     };
+    if (type == "red") { // Coreset
+        console.log("start " + start)
+        console.log("end " + end)
+        console.log("wayp.length " + wayp.length)
+        directionsService.route(request, function (response, status) {
+            if (status == 'OK') {
+                directionsDisplay2.setDirections(response);
+                var path = response.routes[0].overview_path;
+                boxes = routeBoxer.box(path, distance);
+                findPlaces(0);
+            } else {
+                alert("directions request failed, status=" + status)
+                directionsDisplay.setMap(null);
+                directionsDisplay2.setMap(null);
+                clearMarkers(markerCoreset)
+                clearMarkers(markersRansac)
+            }
+        });
+    }
+    else { // Ransac
+        console.log("start " + start)
+        console.log("end " + end)
+        console.log("wayp.length " + wayp.length)
+        directionsService.route(request, function (response, status) {
+            if (status == 'OK') {
+                directionsDisplay.setDirections(response);
+                var path = response.routes[0].overview_path;
+                boxes = routeBoxer.box(path, distance);
+                findPlaces(0);
+            } else {
+                alert("directions request failed, status=" + status)
+                directionsDisplay.setMap(null);
+                directionsDisplay2.setMap(null);
+                clearMarkers(markerCoreset)
+                clearMarkers(markersRansac)
+            }
+        });
+    }
+}
 
-    directionsService.route(request, function (response, status) {
-        if (status == 'OK') {
-            directionsDisplay.setDirections(response);
-        } else {
-            alert("directions request failed, status=" + status)
+// The types of the algorithms are defined by colors: Coreset = red, Ransac = blue
+function sendDirectionRequest(map, k_points, type) {
+    if (isBothOption) {
+        clearMarkers(markerCoreset)   
+        calcRoute(map, k_points[0], "red")
+        clearMarkers(markersRansac)
+        calcRoute(map, k_points[1], "blue")
+        isBothOption = false
+    }
+    else {
+        if(type == "Ransac"){
+            if(type != "Coreset"){
+                clearMarkers(markerCoreset)
+            }
+            clearMarkers(markersRansac)
+            calcRoute(map, k_points, "blue")
         }
+        else{
+            if(type != "Ransac"){
+                clearMarkers(markersRansac)
+            }
+            clearMarkers(markerCoreset)   
+            calcRoute(map, k_points, "red")   
+        }
+    }
+}
+
+// Marks the KMeans markers on the map
+function createRansacCoresetMarkers(type, pos) {
+    if(type == "red")
+        var url_image = "../gif/C.gif"
+    else{
+        var url_image = "../gif/R.gif"   
+    }
+    var image = {
+        url: url_image,
+        size: new google.maps.Size(20, 32),
+        anchor: new google.maps.Point(3.5, 3.5)
+    };
+    var marker = new google.maps.Marker({
+        map: map,
+        icon: url_image,
+        position: pos
     });
+    if(type == "red")
+        markerCoreset.push(marker);
+        else{
+        markersRansac.push(marker);   
+        }
+}
+
+// Creates the place markers and the information windows of each one
+function createMarker(place) {
+    var placeLoc = place.geometry.location;
+    if (place.icon) {
+        var image = new google.maps.MarkerImage(
+            place.icon, new google.maps.Size(71, 71),
+            new google.maps.Point(0, 0), new google.maps.Point(17, 34),
+            new google.maps.Size(25, 25));
+    } else var image = {
+        url: "https://maps.gstatic.com/intl/en_us/mapfiles/markers2/measle.png",
+        size: new google.maps.Size(7, 7),
+        anchor: new google.maps.Point(3.5, 3.5)
+    };
+    var marker = new google.maps.Marker({
+        map: map,
+        icon: image,
+        position: place.geometry.location
+    });
+    markerss.push(marker);
+    var request = {
+        reference: place.reference
+    };
+    google.maps.event.addListener(marker, 'click', function () {
+        places.getDetails(request, function (place, status) {
+            if (status == google.maps.places.PlacesServiceStatus.OK) {
+                infoWindow.open(map, marker);
+                buildIWContent(place);
+
+            } else if (status == google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
+                console.log(place);
+                setTimeout(function () { createMarker(place); }, 1000);
+            }
+            else {
+                var contentStr = "<h5>No Result, status=" + status + "</h5>";
+                infoWindow.setContent(contentStr);
+                infoWindow.open(map, marker);
+            }
+        });
+    });
+    gmarkers.push(marker);
+    if (!place.name) place.name = "result " + gmarkers.length;
+    var side_bar_html = "<a href='javascript:google.maps.event.trigger(gmarkers[" + parseInt(gmarkers.length - 1) + "],\"click\");'>" + place.name + "</a><br>";
+}
+
+// Converts latitude and longitude to a LatLng objects used by Google Maps
+function Convert_points(k_points, start_end) {
+    var arrayOfPoints = [];
+    var d = 0, maxD = 0;
+    var start_index, end_index
+    for (i = 0; i < k_points.length; i += 2) {
+        arrayOfPoints.push(new google.maps.LatLng(k_points[i], k_points[i + 1]));
+    }
+    start_index = 0
+    end_index = 1
+    start_end.prototype = [start_index, end_index]
+    return arrayOfPoints
 }

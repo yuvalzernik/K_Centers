@@ -7,6 +7,8 @@ import copy
 
 import numpy as np
 from set_of_points import SetOfPoints
+import math
+import matplotlib.pyplot as plt
 
 
 
@@ -36,8 +38,10 @@ class SetOfLines:
                 self.displacements.append(displacement)
             self.spans = np.asarray(self.spans)
             self.displacements = np.asarray(self.displacements)
-            self.normalized_lines_representation()
-            self.weights = np.ones(len(lines))
+            #self.normalized_lines_representation()
+            self.normalize_spans()
+            self.weights = np.ones(len(lines)).reshape(-1)
+            self.sensitivities = np.ones(len(lines))
         else:
             size = len(spans)
             if size == 0:  # there is no lines in the set we got
@@ -49,9 +53,12 @@ class SetOfLines:
                 return
             [_, self.dim] = np.shape(spans)
             self.spans = spans
+            self.normalize_spans()
             self.displacements = displacements
-            self.weights = weights
+            self.weights = np.ones(size)
             self.sensitivities = sen
+            #self.normalized_lines_representation()
+
 
 
     def blockshaped(self, arr, nrows, ncols):
@@ -69,7 +76,7 @@ class SetOfLines:
 
     ##################################################################################
 
-    def get_all_intersection_points(self):
+    def get_all_intersection_points_optimized(self):
         """
         this method returns n(n-1) points, where each n-1 points in the n-1 points on each line that are closest to the
         rest n-1 lines.
@@ -115,6 +122,58 @@ class SetOfLines:
         indices = np.arange(0, len(F_x_s_minus_b), size + 1)
         F_x_s_minus_b = np.delete(F_x_s_minus_b, indices, axis=0) #removing all the unnecessary "closest point on the i-th line in the set to the i-th line in the set"
         return F_x_s_minus_b
+
+    ##################################################################################
+
+    def get_all_intersection_points(self):
+        """
+        this method returns n(n-1) points, where each n-1 points in the n-1 points on each line that are closest to the
+        rest n-1 lines.
+
+        Args:
+            ~
+
+        Returns:
+            np.ndarray: all the "intersection" points
+        """
+        assert self.get_size() > 0, "set is empty"
+
+        spans = self.spans
+        displacements = self.displacements
+        dim = self.dim
+        size = self.get_size()
+
+        t = range(size)
+        indexes_repeat_all_but_one = np.array([[x for i, x in enumerate(t) if i != j] for j, j in enumerate(t)]).reshape(-1)
+
+        spans_rep_each = spans[indexes_repeat_all_but_one] #repeat of the spans, each span[i] is being repeated size times in a sequance
+        spans_rep_all = np.repeat(spans.reshape(1, -1), size-1, axis=0).reshape(-1, dim) #repeat of the spans, all the spans block is repeated size-1 times
+        disp_rep_each = displacements[indexes_repeat_all_but_one] #repeat of the displacements, each span[i] is being repeated size times in a sequance
+        disp_rep_all = np.repeat(displacements.reshape(1, -1), size-1, axis=0).reshape(-1, dim) #repeat of the displacements, all the spans block is repeated size-1 times
+
+        W0 = disp_rep_each - disp_rep_all
+        a = np.sum(np.multiply(spans_rep_each,spans_rep_each),axis=1)
+        b = np.sum(np.multiply(spans_rep_each, spans_rep_all),axis=1)
+        c = np.sum(np.multiply(spans_rep_all, spans_rep_all),axis=1)
+        d= np.sum(np.multiply(spans_rep_each, W0),axis=1)
+        e = np.sum(np.multiply(spans_rep_all, W0),axis=1)
+        be = np.multiply(b,e)
+        cd = np.multiply(c,d)
+        be_minus_cd = be - cd
+        ac = np.multiply(a,c)
+        b_squared = np.multiply(b,b)
+        ac_minus_b_squared = ac - b_squared
+        s_c = be_minus_cd / ac_minus_b_squared
+        for i in range(len(s_c)):
+            if np.isnan(s_c[i]):
+                s_c[i] = 0
+        b = np.where(np.isnan(s_c))
+        c = np.sum(b)
+        if c > 0:
+            x=2
+        s_c_repeated = np.repeat(s_c.reshape(-1,1), dim, axis=1)
+        G = disp_rep_each + np.multiply(s_c_repeated,spans_rep_each)
+        return G
 
     ##################################################################################
 
@@ -209,12 +268,13 @@ class SetOfLines:
            P_4_approx = intersection_points_before_uniqe
        else:
            all_indices = np.asarray(range(len(intersection_points)))
-           try:
-               indices_sample = np.random.choice(all_indices, k, False)
-           except:
-               x=2
+           indices_sample = np.random.choice(all_indices, k, False)
            P_4_approx = intersection_points[indices_sample]
+       if len(P_4_approx) == 0:
+           x = 2
        P_4_approx = SetOfPoints(P_4_approx)
+       if P_4_approx.indexes == []:
+           x=2
        return P_4_approx
 
     ###################################################################################
@@ -266,7 +326,7 @@ class SetOfLines:
             sample_spans = np.take(self.spans, sample_indices, axis=0, out=None, mode='raise')
             sample_displacements = np.take(self.displacements, sample_indices, axis=0, out=None, mode='raise')
             sample_weights = np.take(self.weights, sample_indices, axis=0, out=None, mode='raise')
-            return SetOfLines(sample_spans, sample_displacements,sample_weights)
+        return SetOfLines(sample_spans, sample_displacements,sample_weights)
 
     ##################################################################################
 
@@ -296,14 +356,27 @@ class SetOfLines:
         centers_weights = centers.weights
 
         centers_points_repeat_each_row = np.repeat(centers_points, self_size, axis=0).reshape(-1, dim) #this is a size*k-simensional vector, where the i-th element is center[j], where j=i/k
+        a = np.where(np.isnan(centers_points))
+        b = np.where(np.isnan(centers_points_repeat_each_row))
+        a_flag = b_flag = False
+        if np.sum(a)>0:
+            a_flag = True
+        if np.sum(b)>0:
+            b_flag = True
         displacements_repeat_all = np.repeat(self_displacements.reshape(1, -1), centers_size, axis=0).reshape(-1, dim) #repeating the displacement for the sum of squared distances calculation from each center for all the lines
         spans_repeat_all = np.repeat(self_spans.reshape(1, -1), centers_size, axis=0).reshape(-1, dim) #repeating the displacement for the sum of squared distances calculation from each center for all the lines
         centers_minus_displacements = centers_points_repeat_each_row - displacements_repeat_all
         centers_minus_displacements_squared_norms = np.sum(np.multiply(centers_minus_displacements,centers_minus_displacements),axis=1)
         centers_minus_displacements_dot_spans =  np.multiply(centers_minus_displacements, spans_repeat_all)
         centers_minus_displacements_dot_spans_squared_norms = np.sum(np.multiply(centers_minus_displacements_dot_spans,centers_minus_displacements_dot_spans),axis=1)
+        a = np.where(np.isnan(centers_minus_displacements_squared_norms))
+        b = np.where(np.isnan(centers_minus_displacements_dot_spans_squared_norms))
+        a_flag = b_flag = False
+        if np.sum(a)>0:
+            a_flag = True
+        if np.sum(b)>0:
+            b_flag = True
         all_unwighted_distances = centers_minus_displacements_squared_norms - centers_minus_displacements_dot_spans_squared_norms
-
         self_weights_repeat_all = np.repeat(self_weights.reshape(-1,1), centers_size, axis=0).reshape(-1, 1)
         centers_weights_repeat_each_row = np.repeat(centers_weights, self_size, axis=0).reshape(-1,1)
         total_weights = np.multiply(self_weights_repeat_all, centers_weights_repeat_each_row)
@@ -313,6 +386,8 @@ class SetOfLines:
         #sum_of_squared_distances_reshaped = sum_of_squared_distances.reshape(-1,size)
         #sum_of_squared_distances_reshaped_mins = np.min(all_distances, axis=0) #this is a size-dimensional vector, where the i-th element contains the smallest distance from the i-th line to the given set of centers
         cluster_indices = np.argmin(all_distances.T, axis=1) #the i-th element in this array contains the index of the cluster the i-th line was clusterd into.
+        if np.min(all_distances) < 0:
+            x=2
         return cluster_indices
 
     ##################################################################################
@@ -383,13 +458,33 @@ class SetOfLines:
         centers_weights_repeat_each_row = np.repeat(centers_weights, self_size, axis=0).reshape(-1, 1) #this is a size*k array where every size spans were duplicated k times
         centers_points_repeat_each_row_minus_displacements_repeat_all = centers_points_repeat_each_row - self_displacements_repeat_all
         centers_points_minus_displacements_norm_squared = np.sum(np.multiply(centers_points_repeat_each_row_minus_displacements_repeat_all,centers_points_repeat_each_row_minus_displacements_repeat_all),axis=1)
-        centers_points_minus_displacements_mul_spans_norm_squared = np.sum(np.multiply(centers_points_repeat_each_row_minus_displacements_repeat_all, self_spans_repeat_all)**2,axis=1)
+        centers_points_minus_displacements_mul_spans_norm_squared = np.sum(np.multiply(centers_points_repeat_each_row_minus_displacements_repeat_all, self_spans_repeat_all) ** 2 ,axis=1)
         unweighted_all_distances = centers_points_minus_displacements_norm_squared.reshape(-1,1) - centers_points_minus_displacements_mul_spans_norm_squared.reshape(-1,1)
+        #for i in range(len(unweighted_all_distances)):
+        #    if unweighted_all_distances[i] < 0:
+        #        unweighted_all_distances[i] = 0
         total_weights = np.multiply(centers_weights_repeat_each_row.reshape(-1,1), self_weights_repeat_all.reshape(-1,1))
         all_weighted_distances = np.multiply(unweighted_all_distances.reshape(-1,1), total_weights.reshape(-1,1))
         all_distances = (all_weighted_distances).reshape(-1,self_size)
+        """
+        min_unweighted_all_distances = np.min(unweighted_all_distances)
+        min_centers_weights_repeat_each_row = np.min(centers_weights_repeat_each_row)
+        min_self_weights_repeat_all = np.min(self_weights_repeat_all)
+        min_all_weighted_distances = np.min(all_weighted_distances)
+        min_all_distances = np.min(all_distances)
+        #plt.plot(unweighted_all_distances)
+        j = 0
+        for i in range(len(unweighted_all_distances)):
+            if unweighted_all_distances[i] < 0:
+                j+=1
+        print(np.max(np.sort(unweighted_all_distances)))
+        print(np.min(np.sort(unweighted_all_distances)))
+        #plt.show()
+        """
         all_distances_min = np.min(all_distances, axis=0)
         sum_of_squared_distances = np.sum(all_distances_min)
+        if sum_of_squared_distances <= 0:
+            x=2
         return sum_of_squared_distances
 
     ##################################################################################
@@ -428,11 +523,7 @@ class SetOfLines:
         all_distances = np.multiply(all_unweighted_distances.reshape(-1, 1), total_weights.reshape(-1, 1)).reshape(-1)
         if type == "by rate":
             m = int(m * self.get_size())  # number of lines is m percents of size
-        try:
             all_distances_mth_index_in_the_mth_place = np.argpartition(all_distances,m)
-
-        except:
-            x=2
         first_m_smallest_distances_indices = all_distances_mth_index_in_the_mth_place[:m]
         spans_subset = self.spans[first_m_smallest_distances_indices]
         displacements_subset = self.displacements[first_m_smallest_distances_indices]
@@ -554,6 +645,7 @@ class SetOfLines:
             self.displacements = copy.deepcopy(other.displacements)
             return
         self.spans = np.concatenate((self.spans,other.spans))
+        #self.weights = np.concatenate((self.weights, other.weights))
         self.weights = np.concatenate((self.weights,other.weights))
         self.displacements = np.concatenate((self.displacements,other.displacements))
 
@@ -653,16 +745,121 @@ class SetOfLines:
         spans_norms = np.sqrt(np.sum(spans ** 2, axis=1))
         spans_norms_repeat = np.repeat(spans_norms, dim, axis=0).reshape(-1, dim)
         spans_normalized = spans / spans_norms_repeat
-        # print("spans_normalized: \n", spans_normalized)
+        for i in range(len(spans_normalized)):
+            for j in range(len(spans_normalized[i])):
+                if i == 87:
+                    x=2
+                val = spans_normalized[i,j]
+                if math.isnan(val):
+                    spans_normalized[i, j] = 0
 
-        displacements_mul_minus_1 = displacements * -1
-        displacements_mul_minus_1_mul_spans_normalized = np.sum(np.multiply(displacements_mul_minus_1, spans), axis=1)
-        displacements_mul_minus_1_mul_spans_normalized_repeat_each_col = np.repeat(
-            displacements_mul_minus_1_mul_spans_normalized, dim, axis=0).reshape(-1, dim)
-        disp_mul_spans_normalized = np.multiply(spans_normalized,
-                                                displacements_mul_minus_1_mul_spans_normalized_repeat_each_col)
-        displacements_closest_to_origin = disp_mul_spans_normalized + displacements
+        # print("spans_normalized: \n", spans_normalized)
+        #con = np.array([[]])
+        displacements_minus_one = displacements * -1
+        d = np.sum(np.multiply(displacements_minus_one, spans_normalized), axis=1)
+        d_repeat = np.repeat(d, dim, axis=0).reshape(-1, dim)
+        displacements_closest_to_origin = displacements + np.multiply(spans_normalized,d_repeat)
+        """
+        #displacements_mul_spans_normalized = np.multiply(displacements_minus_one, spans_normalized)
+        for i in range(len(displacements_minus_one)):
+            minus = (displacements_minus_one[i] - spans_normalized[i] * d [i]).reshape(-1, self.dim)
+            plus =  (displacements_minus_one[i] + spans_normalized[i] * d [i]).reshape(-1, self.dim)
+            minus_norm = np.sqrt(np.sum(minus ** 2, axis=1))
+            plus_norm = np.sqrt(np.sum(plus ** 2, axis=1))
+            if minus_norm < plus_norm:
+                if i == 0:
+                    con = minus.reshape(-1, self.dim)
+                    continue
+                con = np.append(con,minus,axis=0)
+            else:
+                if i == 0:
+                    con = plus.reshape(-1, self.dim)
+                    continue
+                con = np.append(con,plus,axis=0)
+        """
+        self.displacements = displacements_closest_to_origin
+        self.spans = spans_normalized
+        #displacements_mul_minus_1 = displacements * -1
+        #displacements_mul_minus_1_mul_spans_normalized = np.sum(np.multiply(displacements_mul_minus_1, spans_normalized), axis=1)
+        #displacements_mul_minus_1_mul_spans_normalized_repeat_each_col = np.repeat(
+        #    displacements_mul_minus_1_mul_spans_normalized, dim, axis=0).reshape(-1, dim)
+        #disp_mul_spans_normalized = np.multiply(spans_normalized,
+        #                                        displacements_mul_minus_1_mul_spans_normalized_repeat_each_col)
+        #displacements_closest_to_origin = disp_mul_spans_normalized + displacements
 
         # print("displacements_closest_to_origin: \n", displacements_closest_to_origin)
 
-        return spans_normalized, displacements_closest_to_origin
+
+    ##################################################################################
+
+    def get_sensitivities_first_argument_for_centers(self, B):
+        """
+
+        :param B (SetOfPoints) :  a set of centers to compute the sensitivities first arfument as in Alg.4 in the paper
+        :return (ndarray) : an array of n numbers, where the i-th number is the sensitivity first arg of the i-th line
+        """
+
+        assert B.get_size()>0, "The number of centers is zero"
+
+        cost_to_B = self.get_sum_of_distances_to_centers(B)
+
+        cluster_indexes = self.get_indices_clusters(B)
+        clustered_points = B.get_points_from_indices(cluster_indexes)
+
+        dim = self.dim
+        self_size = self.get_size()
+        self_displacements = self.displacements
+        self_spans = self.spans
+        self_weights = self.weights
+
+        centers_points = clustered_points.points
+        centers_weights = clustered_points.weights
+
+        centers_points_repeat_each_row = np.repeat(centers_points, self_size, axis=0).reshape(-1,dim)
+        centers_weights_repeat_each_row = np.repeat(centers_weights, self_size, axis=0).reshape(-1,1)
+        self_displacements_repeat_all = np.repeat(self_displacements.reshape(1, -1), self_size, axis=0).reshape(-1,dim)
+        self_spans_repeat_all = np.repeat(self_spans.reshape(1, -1), self_size, axis=0).reshape(-1,dim)
+        self_weights_repeat_all = np.repeat(self_weights.reshape(1, -1), self_size,axis=0)
+        centers_points_repeat_each_row_minus_displacements_repeat_all = centers_points_repeat_each_row - self_displacements_repeat_all
+        #centers_points_minus_displacements_norm_squared = np.sum(np.multiply(centers_points_repeat_each_row_minus_displacements_repeat_all,centers_points_repeat_each_row_minus_displacements_repeat_all), axis=1)
+        centers_points_minus_displacements_norm_squared = np.sum(centers_points_repeat_each_row_minus_displacements_repeat_all ** 2, axis=1)
+        try:
+            the_flag = False
+            centers_points_minus_displacements_mul_spans_norm_squared = np.sum(np.multiply(centers_points_repeat_each_row_minus_displacements_repeat_all, self_spans_repeat_all) ** 2,axis=1)
+        except:
+            the_flag = True
+            self_spans_repeat_all_nan_indexes = np.where(np.isnan(self_spans_repeat_all))
+            self_spans_repeat_all[self_spans_repeat_all_nan_indexes] = np.inf
+            centers_points_minus_displacements_mul_spans_norm_squared = np.sum(np.multiply(centers_points_repeat_each_row_minus_displacements_repeat_all, self_spans_repeat_all) ** 2,axis=1)
+            x=2
+        unweighted_all_distances = centers_points_minus_displacements_norm_squared - centers_points_minus_displacements_mul_spans_norm_squared
+        less_than_zero_indexes = np.where(unweighted_all_distances<0)
+        less_than_zero_sum = np.sum(less_than_zero_indexes)
+        if less_than_zero_sum>0:
+            x=2
+        #for i in range(len(unweighted_all_distances)):
+        #    if unweighted_all_distances[i] < 0:
+        #        unweighted_all_distances[i] = 0
+        total_weights = np.multiply(centers_weights_repeat_each_row.reshape(-1, 1),self_weights_repeat_all.reshape(-1, 1))
+        all_weighted_distances = np.multiply(unweighted_all_distances.reshape(-1, 1), total_weights.reshape(-1, 1))
+        all_distances = (all_weighted_distances).reshape(-1, self_size)
+        all_distances_min = np.min(all_distances, axis=0)
+        sensitivities_first_argument = all_distances_min / cost_to_B
+
+        return sensitivities_first_argument
+
+    def shuffle_lines(self):
+        """
+        This method shuffles the lines in the set
+        :return:
+        """
+
+        random_indexes = np.random.permutation(self.get_size())
+        self.spans = self.spans[random_indexes]
+        self.displacements = self.displacements[random_indexes]
+        self.weights = self.weights[random_indexes]
+
+    def normalize_spans(self):
+        spans_norm = np.sum(self.spans ** 2) ** 0.5
+        spans_norm_inv = 1 / spans_norm
+        self.spans = np.multiply(self.spans, spans_norm_inv)
